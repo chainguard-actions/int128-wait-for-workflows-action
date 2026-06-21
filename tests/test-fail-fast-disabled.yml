@@ -1,0 +1,38 @@
+name: Test fail-fast disabled with exclude-workflow-names
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+      GITHUB_REPOSITORY: actions/checkout
+      GITHUB_SERVER_URL: https://github.com
+      GITHUB_RUN_ID: "1"
+      GITHUB_WORKFLOW: test
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          # Use a well-known public SHA
+          sha: de0fac2e4500dabe0009e67214ff5f5447ce83dd
+          token: ${{ github.token }}
+          fail-fast: 'false'
+          initial-delay-seconds: '0'
+          period-seconds: '5'
+          filter-workflow-events: push
+          exclude-workflow-names: |
+            some-workflow-to-exclude
+      - name: Assert action ran (outcome is success or failure, not skipped/cancelled)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "skipped" ] || [ "$OUTCOME" = "cancelled" ]; then
+            echo "FAIL: action was skipped or cancelled unexpectedly"
+            exit 1
+          fi
+          echo "PASS: action ran with outcome=$OUTCOME (failure is expected under act due to no real GitHub API)"

@@ -1,6 +1,11 @@
 {
   "owner": "int128",
   "repo": "wait-for-workflows-action",
-  "version": "",
-  "url": "https://github.com/int128/wait-for-workflows-action"
+  "version": "v1.82.0",
+  "commit_sha": "456c3b39b5e122319b40ffad07b8179731f8291c",
+  "url": "https://github.com/int128/wait-for-workflows-action",
+  "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
+  "test_policy_sha": "843adf9e4b8f85d0c08b27b9d0b09dd094b54702",
+  "test_agent_version": "1",
+  "harden_agent_version": "1"
 }

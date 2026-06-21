@@ -1,0 +1,50 @@
+name: wait-for-workflows-action
+description: Wait for workflow runs
+inputs:
+  filter-workflow-names:
+    description: Filter workflows by name patterns (multiline)
+    required: false
+  exclude-workflow-names:
+    description: Exclude workflows by name patterns (multiline)
+    required: false
+  filter-workflow-events:
+    description: Filter workflows by events (multiline)
+    required: false
+    default: ${{ github.event_name }}
+  filter-by-current-activity-type:
+    description: Filter workflow runs by the activity type of the current event
+    required: true
+    default: 'false'
+  fail-fast:
+    description: Exit immediately if any workflow is failing
+    required: true
+    default: 'true'
+  initial-delay-seconds:
+    description: Initial delay before polling in seconds
+    required: true
+    default: '10'
+  period-seconds:
+    description: Polling period in seconds
+    required: true
+    default: '15'
+  page-size-of-check-suites:
+    description: Page size of CheckSuites query
+    required: true
+    default: '100'
+  sha:
+    description: Commit SHA to wait for
+    required: true
+    default: ${{ github.event.pull_request.head.sha || github.sha }}
+  token:
+    description: GitHub token
+    required: true
+    default: ${{ github.token }}
+outputs:
+  rollup-state:
+    description: Either SUCCESS or FAILURE
+  failed-workflow-names:
+    description: List of failed workflow names (multiline)
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
+  pre: chainguard-phonehome.js

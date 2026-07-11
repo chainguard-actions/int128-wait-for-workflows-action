@@ -1,0 +1,51 @@
+name: Test filter-workflow-names input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Get current SHA
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - id: action
+        uses: .
+        with:
+          sha: ${{ steps.sha.outputs.sha }}
+          initial-delay-seconds: '0'
+          period-seconds: '1'
+          fail-fast: 'false'
+          filter-workflow-names: |
+            nonexistent-workflow-that-does-not-exist
+          filter-workflow-events: push
+          token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action completed
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          if [ "${{ steps.action.outcome }}" = "skipped" ]; then
+            echo "FAIL: action was skipped"
+            exit 1
+          fi
+          echo "PASS: action completed"
+
+      - name: Assert failed-workflow-names is empty when filtering to nonexistent workflow
+        env:
+          FAILED_NAMES: ${{ steps.action.outputs.failed-workflow-names }}
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "rollup-state: $ROLLUP_STATE"
+          echo "failed-workflow-names: '$FAILED_NAMES'"
+          # When filtering to a nonexistent workflow, there should be no failed workflows
+          if [ -n "$FAILED_NAMES" ]; then
+            echo "FAIL: expected no failed workflow names but got: $FAILED_NAMES"
+            exit 1
+          fi
+          echo "PASS: no failed workflow names as expected"

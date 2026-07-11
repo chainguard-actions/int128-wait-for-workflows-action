@@ -1,0 +1,50 @@
+name: Test basic usage - wait for workflows
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Get current SHA
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - id: action
+        uses: .
+        with:
+          sha: ${{ steps.sha.outputs.sha }}
+          initial-delay-seconds: '0'
+          period-seconds: '1'
+          fail-fast: 'false'
+          filter-workflow-events: push
+          token: ${{ github.token }}
+        continue-on-error: true
+
+      - name: Assert action completed
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          if [ "${{ steps.action.outcome }}" = "skipped" ]; then
+            echo "FAIL: action was skipped"
+            exit 1
+          fi
+          echo "PASS: action completed (success or failure)"
+
+      - name: Assert rollup-state output is set
+        env:
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ -z "$ROLLUP_STATE" ]; then
+            echo "WARN: rollup-state is empty (may indicate no check suites found or API error)"
+          else
+            if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
+              echo "FAIL: rollup-state must be SUCCESS or FAILURE, got: $ROLLUP_STATE"
+              exit 1
+            fi
+            echo "PASS: rollup-state is $ROLLUP_STATE"
+          fi

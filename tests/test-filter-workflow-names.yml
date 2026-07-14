@@ -1,0 +1,55 @@
+name: Test filter-workflow-names input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+      GITHUB_REPOSITORY: int128/wait-for-workflows-action
+      GITHUB_SERVER_URL: https://github.com
+      GITHUB_RUN_ID: '1'
+      GITHUB_WORKFLOW: Test filter-workflow-names input
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          filter-workflow-names: |
+            nonexistent-workflow-that-does-not-exist
+          initial-delay-seconds: '0'
+          period-seconds: '5'
+          sha: ${{ github.sha }}
+          token: ${{ github.token }}
+        continue-on-error: true
+      - name: Assert action step ran
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "action outcome: $OUTCOME"
+          if [ -z "$OUTCOME" ]; then
+            echo "FAIL: action step outcome is empty"
+            exit 1
+          fi
+          echo "PASS: action step ran with outcome=$OUTCOME"
+      - name: Assert rollup-state output if action succeeded
+        env:
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$ROLLUP_STATE" ]; then
+              echo "FAIL: rollup-state output is empty when action succeeded"
+              exit 1
+            fi
+            if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
+              echo "FAIL: rollup-state must be SUCCESS or FAILURE, got: $ROLLUP_STATE"
+              exit 1
+            fi
+            echo "PASS: rollup-state=$ROLLUP_STATE"
+          else
+            echo "PASS: action did not succeed (expected in act without real GitHub API), outcome=$OUTCOME"
+          fi

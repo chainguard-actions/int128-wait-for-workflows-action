@@ -1,0 +1,183 @@
+import assert from 'node:assert'
+import { matchesGlob } from 'node:path'
+import type { ListChecksQuery } from './generated/graphql.js'
+import { CheckConclusionState, CheckStatusState } from './generated/graphql-types.js'
+
+export type Rollup = {
+  status: RollupStatus
+  conclusion: RollupConclusion
+  workflowRuns: WorkflowRun[]
+}
+
+type RollupStatus = CheckStatusState.Completed | null
+
+type RollupConclusion = CheckConclusionState.Success | CheckConclusionState.Failure | null
+
+type WorkflowRun = {
+  status: CheckStatusState
+  conclusion: CheckConclusionState | null
+  event: string
+  url: string
+  workflowName: string
+  workflowFilePath: string | undefined
+}
+
+export type RollupOptions = {
+  selfWorkflowName: string
+  filterWorkflowEvents: string[]
+  excludeWorkflowNames: string[]
+  filterWorkflowNames: string[]
+  filterWorkflowFilePaths: string[]
+}
+
+export const rollupChecks = (checks: ListChecksQuery, options: RollupOptions): Rollup => {
+  assert(checks.repository != null, `repository must not be null`)
+  assert(checks.repository.object != null, `repository.object must not be null`)
+  assert.strictEqual(checks.repository.object.__typename, 'Commit')
+  assert(checks.repository.object.checkSuites != null, `repository.object.checkSuites must not be null`)
+  assert(checks.repository.object.checkSuites.nodes != null, `repository.object.checkSuites.nodes must not be null`)
+
+  const rawWorkflowRuns: WorkflowRun[] = []
+  for (const node of checks.repository.object.checkSuites.nodes) {
+    assert(node != null, `checkSuite.node must not be null`)
+    assert(node.conclusion !== undefined, `checkSuite.node.conclusion must not be undefined`)
+    if (node.workflowRun == null) {
+      continue
+    }
+    rawWorkflowRuns.push({
+      status: node.status,
+      conclusion: node.conclusion,
+      event: node.workflowRun.event,
+      url: node.workflowRun.url,
+      workflowName: node.workflowRun.workflow.name,
+      workflowFilePath: node.workflowRun.file?.path,
+    })
+  }
+
+  const latestWorkflowRuns = filterLatestWorkflowRuns(rawWorkflowRuns)
+
+  const excludeWorkflowNameMatcher = createGlobMatcher(options.excludeWorkflowNames, false)
+  const filterWorkflowNameMatcher = createGlobMatcher(options.filterWorkflowNames)
+  const workflowRuns = latestWorkflowRuns.filter((workflowRun) => {
+    if (options.filterWorkflowFilePaths.length > 0) {
+      if (
+        workflowRun.workflowFilePath != null &&
+        !options.filterWorkflowFilePaths.includes(workflowRun.workflowFilePath)
+      ) {
+        return false
+      }
+    }
+    // Exclude self to prevent the infinite loop
+    if (workflowRun.workflowName === options.selfWorkflowName) {
+      return false
+    }
+    // Filter workflows by event
+    if (options.filterWorkflowEvents.length > 0) {
+      if (!options.filterWorkflowEvents.includes(workflowRun.event)) {
+        return false
+      }
+    }
+    // Exclude workflows by names
+    if (excludeWorkflowNameMatcher(workflowRun.workflowName)) {
+      return false
+    }
+    // Filter workflows by names
+    return filterWorkflowNameMatcher(workflowRun.workflowName)
+  })
+
+  sortByWorkflowName(workflowRuns)
+
+  return {
+    status: determineRollupStatus(workflowRuns),
+    conclusion: determineRollupConclusion(workflowRuns),
+    workflowRuns,
+  }
+}
+
+const createGlobMatcher =
+  (patterns: string[], defaultValue = true) =>
+  (target: string): boolean => {
+    if (patterns.length === 0) {
+      return defaultValue
+    }
+    // The patterns must contain at least one positive pattern, otherwise the negation patterns will be ignored.
+    let matched = false
+    for (const pattern of patterns) {
+      if (pattern.startsWith('!')) {
+        matched = matched && !matchesGlob(target, pattern.slice(1))
+      } else {
+        matched = matched || matchesGlob(target, pattern)
+      }
+    }
+    return matched
+  }
+
+export const filterLatestWorkflowRuns = (workflowRuns: WorkflowRun[]): WorkflowRun[] => {
+  const latestWorkflowRuns = new Map<string, WorkflowRun>()
+  for (const workflowRun of workflowRuns) {
+    const key = `${workflowRun.workflowName}--${workflowRun.event}`
+    if (!latestWorkflowRuns.has(key)) {
+      latestWorkflowRuns.set(key, workflowRun)
+    } else {
+      // Keep the latest workflow run based on URL (assuming URL contains a run ID)
+      const existingWorkflowRun = latestWorkflowRuns.get(key)
+      assert(existingWorkflowRun != null)
+      if (workflowRun.url.localeCompare(existingWorkflowRun.url) > 0) {
+        latestWorkflowRuns.set(key, workflowRun)
+      }
+    }
+  }
+  return [...latestWorkflowRuns.values()]
+}
+
+const sortByWorkflowName = (workflowRuns: WorkflowRun[]) =>
+  workflowRuns.sort((a, b) => a.workflowName.localeCompare(b.workflowName))
+
+const isFailedConclusion = (conclusion: CheckConclusionState | null): boolean =>
+  conclusion === CheckConclusionState.Failure ||
+  conclusion === CheckConclusionState.Cancelled ||
+  conclusion === CheckConclusionState.StartupFailure ||
+  conclusion === CheckConclusionState.TimedOut
+
+export const determineRollupConclusion = (workflowRuns: WorkflowRun[]): RollupConclusion => {
+  if (workflowRuns.some((run) => isFailedConclusion(run.conclusion))) {
+    return CheckConclusionState.Failure
+  }
+  if (workflowRuns.every((run) => run.status === CheckStatusState.Completed)) {
+    return CheckConclusionState.Success
+  }
+  return null
+}
+
+export const determineRollupStatus = (workflowRuns: WorkflowRun[]): RollupStatus => {
+  if (workflowRuns.every((run) => run.status === CheckStatusState.Completed)) {
+    return CheckStatusState.Completed
+  }
+  return null
+}
+
+export const formatConclusion = (conclusion: CheckConclusionState | null): string => {
+  if (isFailedConclusion(conclusion)) {
+    return `❌ ${conclusion}`
+  }
+  if (conclusion === CheckConclusionState.Success) {
+    return `✅ ${conclusion}`
+  }
+  return conclusion ?? ''
+}
+
+export const formatStatus = (status: CheckStatusState): string => {
+  switch (status) {
+    case CheckStatusState.Queued:
+      return `🕒 ${status}`
+    case CheckStatusState.InProgress:
+      return `🚧 ${status}`
+  }
+  return status
+}
+
+export const filterFailedWorkflowRuns = (workflowRuns: WorkflowRun[]): WorkflowRun[] =>
+  workflowRuns.filter((run) => isFailedConclusion(run.conclusion))
+
+export const filterCompletedWorkflowRuns = (workflowRuns: WorkflowRun[]): WorkflowRun[] =>
+  workflowRuns.filter((run) => run.status === CheckStatusState.Completed)

@@ -1,0 +1,37 @@
+name: Test exclude-workflow-names input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          exclude-workflow-names: |
+            Some Workflow To Exclude
+            Another Excluded Workflow
+          filter-workflow-events: push
+          initial-delay-seconds: '1'
+          period-seconds: '5'
+          sha: ${{ github.sha }}
+          token: ${{ github.token }}
+        continue-on-error: true
+      - name: Assert rollup-state output is set
+        env:
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ -z "$ROLLUP_STATE" ]; then
+            echo "FAIL: rollup-state output was empty"
+            exit 1
+          fi
+          if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
+            echo "FAIL: rollup-state must be SUCCESS or FAILURE, got: $ROLLUP_STATE"
+            exit 1
+          fi
+          echo "PASS: rollup-state=$ROLLUP_STATE"

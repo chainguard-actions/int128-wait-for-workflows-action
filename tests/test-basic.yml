@@ -4,52 +4,30 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_EVENT_NAME: push
-      GITHUB_REF: refs/heads/main
-      GITHUB_REPOSITORY: int128/wait-for-workflows-action
-      GITHUB_SERVER_URL: https://github.com
-      GITHUB_RUN_ID: '1'
-      GITHUB_WORKFLOW: test-basic
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: action
         uses: .
         with:
-          initial-delay-seconds: '0'
+          # Use a very short initial delay and period to avoid long waits
+          initial-delay-seconds: '1'
           period-seconds: '5'
+          # Filter to only look at workflow_dispatch events to limit scope
+          filter-workflow-events: 'workflow_dispatch'
+          # Disable fail-fast so we always get a rollup-state output
           fail-fast: 'false'
-          sha: ${{ github.sha }}
-          token: ${{ github.token }}
-        continue-on-error: true
-      - name: Assert action ran (outcome is success or failure, not skipped/cancelled)
-        env:
-          OUTCOME: ${{ steps.action.outcome }}
-        run: |
-          echo "action outcome: $OUTCOME"
-          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action ran with outcome=$OUTCOME"
-          else
-            echo "FAIL: unexpected outcome: $OUTCOME"
-            exit 1
-          fi
-      - name: Assert rollup-state output if action succeeded
+          sha: 5a71bf2a4d217cc61483d388e735c72e7b02a7c3
+      - name: Assert rollup-state is set
         env:
           ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
-          OUTCOME: ${{ steps.action.outcome }}
         run: |
-          echo "action outcome: $OUTCOME"
           echo "rollup-state: $ROLLUP_STATE"
-          if [ "$OUTCOME" = "success" ]; then
-            if [ -z "$ROLLUP_STATE" ]; then
-              echo "FAIL: rollup-state output was empty on success"
-              exit 1
-            fi
-            if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
-              echo "FAIL: rollup-state must be SUCCESS or FAILURE, got: $ROLLUP_STATE"
-              exit 1
-            fi
-            echo "PASS: rollup-state=$ROLLUP_STATE"
-          else
-            echo "PASS: action failed (likely API auth issue in act environment), skipping output assertion"
+          if [ -z "$ROLLUP_STATE" ]; then
+            echo "FAIL: rollup-state output is empty"
+            exit 1
           fi
+          if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
+            echo "FAIL: rollup-state must be SUCCESS or FAILURE, got: $ROLLUP_STATE"
+            exit 1
+          fi
+          echo "PASS: rollup-state=$ROLLUP_STATE"

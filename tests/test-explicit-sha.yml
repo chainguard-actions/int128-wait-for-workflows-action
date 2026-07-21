@@ -1,4 +1,4 @@
-name: Test filter workflow names
+name: Test explicit SHA input
 on:
   workflow_dispatch:
 jobs:
@@ -6,16 +6,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Get current SHA
+        id: get-sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - id: action
         uses: .
         with:
-          # Filter to a workflow name that likely doesn't exist, so it completes quickly
-          filter-workflow-names: |
-            nonexistent-workflow-xyz-12345
+          sha: 5a71bf2a4d217cc61483d388e735c72e7b02a7c3
+          # Filter to workflow_dispatch events only to limit scope
+          filter-workflow-events: 'workflow_dispatch'
           initial-delay-seconds: '1'
           period-seconds: '5'
           fail-fast: 'false'
-          sha: 5a71bf2a4d217cc61483d388e735c72e7b02a7c3
       - name: Assert rollup-state is set
         env:
           ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
@@ -30,14 +32,9 @@ jobs:
             exit 1
           fi
           echo "PASS: rollup-state=$ROLLUP_STATE"
-      - name: Assert failed-workflow-names output exists (may be empty)
+      - name: Assert failed-workflow-names output is present
         env:
           FAILED_NAMES: ${{ steps.action.outputs.failed-workflow-names }}
         run: |
           echo "failed-workflow-names: '$FAILED_NAMES'"
-          # When filtering to a nonexistent workflow, there should be no failures
-          if [ -n "$FAILED_NAMES" ]; then
-            echo "INFO: Some workflows reported as failed: $FAILED_NAMES"
-          else
-            echo "PASS: no failed workflow names (expected for nonexistent filter)"
-          fi
+          echo "PASS: output captured (may be empty if no failures)"

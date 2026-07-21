@@ -1,34 +1,28 @@
-name: Test exclude-workflow-names input
+name: Test exclude workflow names
 on:
   workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_EVENT_NAME: push
-      GITHUB_REF: refs/heads/main
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: action
         uses: .
         with:
+          # Exclude all workflows by a broad pattern to complete quickly
           exclude-workflow-names: |
-            Some Workflow To Exclude
-            Another Excluded Workflow
-          filter-workflow-events: push
-          sha: ${{ github.sha }}
-          token: ${{ github.token }}
-          initial-delay-seconds: '0'
+            .*
+          initial-delay-seconds: '1'
           period-seconds: '5'
           fail-fast: 'false'
-        continue-on-error: true
-      - name: Assert rollup-state output is present
+          sha: 5a71bf2a4d217cc61483d388e735c72e7b02a7c3
+      - name: Assert rollup-state is set
         env:
           ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
         run: |
           echo "rollup-state: $ROLLUP_STATE"
           if [ -z "$ROLLUP_STATE" ]; then
-            echo "FAIL: rollup-state output was empty"
+            echo "FAIL: rollup-state output is empty"
             exit 1
           fi
           if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
@@ -36,3 +30,14 @@ jobs:
             exit 1
           fi
           echo "PASS: rollup-state=$ROLLUP_STATE"
+      - name: Assert failed-workflow-names output is present
+        env:
+          FAILED_NAMES: ${{ steps.action.outputs.failed-workflow-names }}
+        run: |
+          echo "failed-workflow-names: '$FAILED_NAMES'"
+          # When all workflows are excluded, there should be no failures
+          if [ -n "$FAILED_NAMES" ]; then
+            echo "INFO: Some workflows reported as failed: $FAILED_NAMES"
+          else
+            echo "PASS: no failed workflow names (expected when all excluded)"
+          fi

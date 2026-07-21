@@ -1,4 +1,4 @@
-name: Test basic usage - no matching workflows returns SUCCESS
+name: Test fail-fast disabled - no matching workflows returns SUCCESS
 on:
   workflow_dispatch:
 jobs:
@@ -14,7 +14,7 @@ jobs:
           filter-workflow-names: |
             __nonexistent_workflow_that_will_never_match__
           filter-workflow-events: workflow_dispatch
-          fail-fast: 'true'
+          fail-fast: 'false'
           initial-delay-seconds: '0'
           period-seconds: '5'
           sha: 0e537e6178889f2339a37912dce46d725583b668

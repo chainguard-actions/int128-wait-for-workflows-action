@@ -1,4 +1,4 @@
-name: Test basic usage - no matching workflows returns SUCCESS
+name: Test filter-workflow-events - non-matching event returns SUCCESS
 on:
   workflow_dispatch:
 jobs:
@@ -9,11 +9,10 @@ jobs:
       - id: action
         uses: .
         with:
-          # Filter to a workflow name that will never exist so the action
-          # finds no pending workflows and returns SUCCESS immediately.
-          filter-workflow-names: |
-            __nonexistent_workflow_that_will_never_match__
-          filter-workflow-events: workflow_dispatch
+          # Filter to an event type that will never match any running workflow
+          # under the test harness, so the action returns SUCCESS immediately.
+          filter-workflow-events: |
+            __nonexistent_event_type__
           fail-fast: 'true'
           initial-delay-seconds: '0'
           period-seconds: '5'

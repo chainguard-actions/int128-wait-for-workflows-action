@@ -1,37 +1,40 @@
-name: Test exclude-workflow-names input
+name: Test exclude-workflow-names - excluded workflows return SUCCESS
 on:
   workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_EVENT_NAME: push
-      GITHUB_REF: refs/heads/main
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - id: action
         uses: .
         with:
+          # Exclude all workflows using a wildcard-like broad pattern so
+          # the action finds no pending workflows and returns SUCCESS immediately.
           exclude-workflow-names: |
-            Some Workflow To Exclude
-            Another Excluded Workflow
-          filter-workflow-events: push
-          initial-delay-seconds: '1'
+            *
+          filter-workflow-events: workflow_dispatch
+          fail-fast: 'true'
+          initial-delay-seconds: '0'
           period-seconds: '5'
-          sha: ${{ github.sha }}
-          token: ${{ github.token }}
-        continue-on-error: true
-      - name: Assert rollup-state output is set
+          sha: 0e537e6178889f2339a37912dce46d725583b668
+      - name: Assert rollup-state is SUCCESS
         env:
-          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+          ACTUAL: ${{ steps.action.outputs.rollup-state }}
         run: |
-          echo "rollup-state: $ROLLUP_STATE"
-          if [ -z "$ROLLUP_STATE" ]; then
-            echo "FAIL: rollup-state output was empty"
+          echo "actual rollup-state: $ACTUAL"
+          if [ "$ACTUAL" != "SUCCESS" ]; then
+            echo "FAIL: expected rollup-state to be 'SUCCESS', got '$ACTUAL'"
             exit 1
           fi
-          if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
-            echo "FAIL: rollup-state must be SUCCESS or FAILURE, got: $ROLLUP_STATE"
+          echo "PASS"
+      - name: Assert failed-workflow-names is empty
+        env:
+          ACTUAL: ${{ steps.action.outputs.failed-workflow-names }}
+        run: |
+          echo "actual failed-workflow-names: '$ACTUAL'"
+          if [ -n "$ACTUAL" ]; then
+            echo "FAIL: expected failed-workflow-names to be empty, got '$ACTUAL'"
             exit 1
           fi
-          echo "PASS: rollup-state=$ROLLUP_STATE"
+          echo "PASS"

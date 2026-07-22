@@ -1,0 +1,37 @@
+name: Test filter-workflow-events input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          initial-delay-seconds: '1'
+          period-seconds: '5'
+          # Filter to a specific event type that won't match any running workflows
+          filter-workflow-events: |
+            __nonexistent_event_type__
+          sha: 1bf879e82d613b159c8895a7a648ab31b0828f2b
+      - name: Assert rollup-state is SUCCESS
+        env:
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ "$ROLLUP_STATE" != "SUCCESS" ]; then
+            echo "FAIL: expected SUCCESS but got '$ROLLUP_STATE'"
+            exit 1
+          fi
+          echo "PASS: rollup-state is SUCCESS"
+      - name: Assert failed-workflow-names is empty
+        env:
+          FAILED_NAMES: ${{ steps.action.outputs.failed-workflow-names }}
+        run: |
+          echo "failed-workflow-names: '$FAILED_NAMES'"
+          if [ -n "$FAILED_NAMES" ]; then
+            echo "FAIL: expected empty failed-workflow-names but got '$FAILED_NAMES'"
+            exit 1
+          fi
+          echo "PASS: failed-workflow-names is empty"

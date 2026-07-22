@@ -1,0 +1,38 @@
+name: Test basic usage - wait for workflows
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          # Use a very short delay to keep the test fast
+          initial-delay-seconds: '1'
+          period-seconds: '5'
+          # Filter to a workflow name that doesn't exist so it resolves immediately
+          filter-workflow-names: '__nonexistent_workflow_that_will_never_match__'
+          # Use the current SHA (default)
+          sha: 1bf879e82d613b159c8895a7a648ab31b0828f2b
+      - name: Assert rollup-state output is set
+        env:
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ -z "$ROLLUP_STATE" ]; then
+            echo "FAIL: rollup-state output is empty"
+            exit 1
+          fi
+          echo "PASS: rollup-state is set to '$ROLLUP_STATE'"
+      - name: Assert rollup-state is SUCCESS (no matching workflows)
+        env:
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ "$ROLLUP_STATE" != "SUCCESS" ]; then
+            echo "FAIL: expected SUCCESS but got '$ROLLUP_STATE'"
+            exit 1
+          fi
+          echo "PASS: rollup-state is SUCCESS"

@@ -1,4 +1,4 @@
-name: Test basic usage
+name: Test filter-workflow-events
 on:
   workflow_dispatch:
 jobs:
@@ -9,15 +9,16 @@ jobs:
       - id: action
         uses: .
         with:
-          # Use a very short initial delay and period to avoid long waits
+          # Filter to a specific event type — use workflow_dispatch which is the
+          # current event so the action polls for workflow_dispatch runs on this SHA
+          filter-workflow-events: |
+            workflow_dispatch
           initial-delay-seconds: '1'
           period-seconds: '5'
-          # fail-fast false so we get output even if something is failing
           fail-fast: 'false'
-          # Use the current SHA (default behavior)
           sha: ad266067e3fee2dc057098d6bfeb835d960d04d4
         continue-on-error: true
-      - name: Assert rollup-state is set and valid
+      - name: Assert rollup-state is valid with event filter
         env:
           ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
         run: |

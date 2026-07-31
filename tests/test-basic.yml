@@ -1,0 +1,35 @@
+name: Test basic usage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          initial-delay-seconds: '1'
+          period-seconds: '5'
+          filter-workflow-events: 'workflow_dispatch'
+          sha: 6c65bc2a70f23d4664e045d6589c40f17be30005
+      - name: Assert rollup-state is SUCCESS
+        env:
+          ACTUAL: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "actual rollup-state: $ACTUAL"
+          if [ "$ACTUAL" != "SUCCESS" ]; then
+            echo "FAIL: expected rollup-state to be SUCCESS, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert failed-workflow-names is empty
+        env:
+          ACTUAL: ${{ steps.action.outputs.failed-workflow-names }}
+        run: |
+          echo "actual failed-workflow-names: '$ACTUAL'"
+          if [ -n "$ACTUAL" ]; then
+            echo "FAIL: expected failed-workflow-names to be empty, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

@@ -1,0 +1,26 @@
+name: Test fail-fast disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          fail-fast: 'false'
+          initial-delay-seconds: '1'
+          period-seconds: '5'
+          filter-workflow-events: 'workflow_dispatch'
+          sha: 6c65bc2a70f23d4664e045d6589c40f17be30005
+      - name: Assert rollup-state is SUCCESS
+        env:
+          ACTUAL: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "actual rollup-state: $ACTUAL"
+          if [ "$ACTUAL" != "SUCCESS" ]; then
+            echo "FAIL: expected rollup-state to be SUCCESS, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

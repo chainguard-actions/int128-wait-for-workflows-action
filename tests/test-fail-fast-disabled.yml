@@ -1,0 +1,31 @@
+name: Test fail-fast disabled - no matching workflows
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          # Filter to a workflow name that will never exist so the action
+          # returns quickly even with fail-fast disabled.
+          filter-workflow-names: |
+            __nonexistent_workflow_that_will_never_match__
+          filter-workflow-events: workflow_dispatch
+          fail-fast: 'false'
+          initial-delay-seconds: '1'
+          period-seconds: '5'
+          sha: 27170e8fcc2bb150eb5c45a8c1c5ded9cb0471d6
+          token: ${{ github.token }}
+      - name: Assert rollup-state is SUCCESS
+        env:
+          ACTUAL: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "actual rollup-state: $ACTUAL"
+          if [ "$ACTUAL" != "SUCCESS" ]; then
+            echo "FAIL: expected rollup-state to be 'SUCCESS', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

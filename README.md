@@ -1,20 +1,172 @@
-# int128/wait-for-workflows-action
+# wait-for-workflows-action [![ts](https://github.com/int128/wait-for-workflows-action/actions/workflows/ts.yaml/badge.svg)](https://github.com/int128/wait-for-workflows-action/actions/workflows/ts.yaml)
 
-Wait for workflow runs
+This is an action to wait for all workflow runs of the current commit.
 
-Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at [https://github.com/int128/wait-for-workflows-action](https://github.com/int128/wait-for-workflows-action).
+When any workflow has `paths` filter in GitHub Actions,
+it is not possible to set a status check to a branch ruleset.
+This action aggregates the statuses of workflow runs for a status check.
 
-## Versions
+## Getting Started
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v1.78.0 | [`v1.78.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.78.0) | [`1bf879e`](https://github.com/int128/wait-for-workflows-action/commit/1bf879e82d613b159c8895a7a648ab31b0828f2b) |
-| v1.81.0 | [`v1.81.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.81.0) | [`e85220a`](https://github.com/int128/wait-for-workflows-action/commit/e85220a0265fc3ebf3b6900baec84d151421cd48) |
-| v1.82.0 | [`v1.82.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.82.0) | [`456c3b3`](https://github.com/int128/wait-for-workflows-action/commit/456c3b39b5e122319b40ffad07b8179731f8291c) |
-| v1.84.0 | [`v1.84.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.84.0) | [`0e537e6`](https://github.com/int128/wait-for-workflows-action/commit/0e537e6178889f2339a37912dce46d725583b668) |
-| v1.85.0 | [`v1.85.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.85.0) | [`5a71bf2`](https://github.com/int128/wait-for-workflows-action/commit/5a71bf2a4d217cc61483d388e735c72e7b02a7c3) |
-| v1.86.0 | [`v1.86.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.86.0) | [`ad26606`](https://github.com/int128/wait-for-workflows-action/commit/ad266067e3fee2dc057098d6bfeb835d960d04d4) |
-| v1.88.0 | [`v1.88.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.88.0) | [`6c65bc2`](https://github.com/int128/wait-for-workflows-action/commit/6c65bc2a70f23d4664e045d6589c40f17be30005) |
+To wait for all workflow runs of the current pull request,
+
+```yaml
+name: wait-for-workflows
+
+on:
+  pull_request:
+
+jobs:
+  wait-for-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: int128/wait-for-workflows-action@v1
+```
+
+If any workflow run is failed, this action exits with failure.
+
+### Enable a status check
+
+You can set up a branch ruleset with the status check of `wait-for-workflows`.
+For example,
+
+<img width="755" alt="image" src="https://github.com/user-attachments/assets/de4fb62b-706c-4d0a-9c61-e0c2af2f378d">
+
+Therefore, a pull request status looks like:
+
+<img width="910" alt="image" src="https://github.com/int128/wait-for-workflows-action/assets/321266/167214a3-a5b9-40ce-84a6-0d39cfba5856">
+
+## How it works
+
+This action watches the workflow runs against the current commit.
+It determines the rollup state as follows:
+
+- If **any** workflow run is failed, this action exits with failure.
+- If **all** workflow runs are completed, this action exits successfully.
+
+It excludes the workflow of self to prevent an infinite loop.
+
+It filters the workflows by the current event such as `push` or `pull_request`.
+
+It filters the latest workflow runs by the workflow name and event.
+When there are multiple workflow runs with the same name and event, it keeps only the latest one.
+
+### Exclude or filter workflows by name patterns
+
+By default, this action evaluates all workflow runs.
+You can exclude workflow runs by glob name patterns.
+
+```yaml
+jobs:
+  wait-for-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: int128/wait-for-workflows-action@v1
+        with:
+          exclude-workflow-names: |
+            * / generate-graphql
+```
+
+You can also filter workflow runs by glob name patterns.
+
+```yaml
+jobs:
+  wait-for-backend-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: int128/wait-for-workflows-action@v1
+        with:
+          filter-workflow-names: |
+            backend / *
+```
+
+### Fail-fast
+
+By default, this action exits immediately if any workflow run is failing.
+You can wait for completion of all workflow runs by disabling fail-fast.
+
+```yaml
+jobs:
+  wait-for-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: int128/wait-for-workflows-action@v1
+        with:
+          fail-fast: false
+```
+
+### Filter workflow runs by current activity type
+
+By default, this action evaluates the workflow runs triggered by all activity types of the current event.
+It may cause unexpected failure if there are workflow runs triggered by multiple activity types.
+For example,
+
+1. This action is triggered by `pull_request` event.
+2. A workflow run is triggered by `pull_request` event with activity type `opened`.
+3. A workflow run is triggered by `pull_request` event with activity type `labeled`.
+4. This action evaluates the workflow runs triggered by both `opened` and `labeled` activity types.
+   If the workflow run of `labeled` activity type is failed, this action exits with failure, even if the workflow run of `opened` activity type is successful.
+
+You can set `filter-by-current-activity-type` to filter workflow runs by the current activity type.
+
+```yaml
+on:
+  pull_request:
+
+jobs:
+  wait-for-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: int128/wait-for-workflows-action@v1
+        with:
+          # Filter workflow runs triggered by the current activity type such as opened, synchronize, or reopened.
+          # It excludes other activity types such as labeled or unlabeled.
+          filter-by-current-activity-type: true
+```
+
+## Caveats
+
+### Cost of GitHub-hosted runners :moneybag:
+
+This action runs until all workflows are completed.
+It may increase the cost of GitHub-hosted runners.
+If your repository is private, it is strongly recommended to use your self-hosted runners.
+
+### GitHub API rate limit
+
+This action calls the GitHub GraphQL API until all workflows are completed.
+It is recommended to use a token of GitHub App or PAT, instead of the default `GITHUB_TOKEN`.
+See [rate limiting](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting) for details.
+
+## Specification
+
+### Inputs
+
+| Name                              | Default                                              | Description                                                    |
+| --------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------- |
+| `filter-workflow-names`           | -                                                    | Filter workflows by name patterns                              |
+| `exclude-workflow-names`          | -                                                    | Exclude workflows by name patterns                             |
+| `filter-workflow-events`          | `github.event_name`                                  | Filter workflows by events                                     |
+| `filter-by-current-activity-type` | false                                                | Filter workflow runs by the activity type of the current event |
+| `fail-fast`                       | true                                                 | Exit immediately if any workflow is failing                    |
+| `initial-delay-seconds`           | 10                                                   | Initial delay before polling                                   |
+| `period-seconds`                  | 15                                                   | Polling period                                                 |
+| `page-size-of-check-suites`       | 100                                                  | Page size of CheckSuites query                                 |
+| `sha`                             | `github.event.pull_request.head.sha` or `github.sha` | Commit SHA to wait for                                         |
+| `token`                           | `github.token`                                       | GitHub token                                                   |
+
+### Outputs
+
+| Name                    | Description                   |
+| ----------------------- | ----------------------------- |
+| `rollup-state`          | Either `SUCCESS` or `FAILURE` |
+| `failed-workflow-names` | List of failed workflow names |
 
 ## Privacy
 

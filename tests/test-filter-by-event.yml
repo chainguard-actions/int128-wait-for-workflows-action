@@ -1,0 +1,40 @@
+name: Test filter by workflow event
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          # Filter to a specific event type that won't match any running workflows
+          # for this commit, so the action returns SUCCESS immediately.
+          filter-workflow-events: |
+            __nonexistent_event_type__
+          fail-fast: 'true'
+          initial-delay-seconds: '1'
+          period-seconds: '5'
+          sha: 27170e8fcc2bb150eb5c45a8c1c5ded9cb0471d6
+          token: ${{ github.token }}
+      - name: Assert rollup-state is SUCCESS
+        env:
+          ACTUAL: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "actual rollup-state: $ACTUAL"
+          if [ "$ACTUAL" != "SUCCESS" ]; then
+            echo "FAIL: expected rollup-state to be 'SUCCESS', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert failed-workflow-names is empty
+        env:
+          ACTUAL: ${{ steps.action.outputs.failed-workflow-names }}
+        run: |
+          echo "actual failed-workflow-names: '$ACTUAL'"
+          if [ -n "$ACTUAL" ]; then
+            echo "FAIL: expected failed-workflow-names to be empty, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"

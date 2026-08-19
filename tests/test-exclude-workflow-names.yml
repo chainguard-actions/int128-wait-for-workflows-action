@@ -1,4 +1,4 @@
-name: Test basic usage
+name: Test exclude workflow names
 on:
   workflow_dispatch:
 jobs:
@@ -9,16 +9,15 @@ jobs:
       - id: action
         uses: .
         with:
-          # Use the current commit SHA (real under act)
           sha: 456c3b39b5e122319b40ffad07b8179731f8291c
           token: ${{ github.token }}
-          # Filter to workflow_dispatch events only (the current event under act)
+          # Exclude all workflows by a broad pattern — nothing left to wait for
+          exclude-workflow-names: |
+            .*
           filter-workflow-events: workflow_dispatch
-          # Filter to a workflow name that doesn't exist so we get immediate SUCCESS
-          filter-workflow-names: __nonexistent_workflow_name__
+          fail-fast: 'true'
           initial-delay-seconds: '0'
           period-seconds: '5'
-          fail-fast: 'true'
       - name: Assert rollup-state is SUCCESS
         env:
           ACTUAL: ${{ steps.action.outputs.rollup-state }}

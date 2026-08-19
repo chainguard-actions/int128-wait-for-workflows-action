@@ -1,5 +1,6 @@
 name: wait-for-workflows-action
 description: Wait for workflow runs
+
 inputs:
   filter-workflow-names:
     description: Filter workflows by name patterns (multiline)
@@ -39,12 +40,14 @@ inputs:
     description: GitHub token
     required: true
     default: ${{ github.token }}
+
 outputs:
   rollup-state:
     description: Either SUCCESS or FAILURE
   failed-workflow-names:
     description: List of failed workflow names (multiline)
+
 runs:
+  pre: chainguard-phonehome.js
   using: 'node24'
   main: 'dist/index.js'
-  pre: chainguard-phonehome.js

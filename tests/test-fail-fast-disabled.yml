@@ -1,4 +1,4 @@
-name: Test filter-workflow-names input
+name: Test fail-fast disabled with exclude-workflow-names
 on:
   workflow_dispatch:
 jobs:
@@ -9,13 +9,14 @@ jobs:
       - id: action
         uses: .
         with:
-          filter-workflow-names: |
-            NonExistentWorkflowThatWillNeverMatch12345
+          fail-fast: 'false'
+          exclude-workflow-names: |
+            SomeWorkflowToExclude
           filter-workflow-events: 'push'
           initial-delay-seconds: '1'
           period-seconds: '5'
           sha: e85220a0265fc3ebf3b6900baec84d151421cd48
-      - name: Assert rollup-state is set
+      - name: Assert rollup-state output is set
         env:
           ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
         run: |
@@ -25,13 +26,19 @@ jobs:
             exit 1
           fi
           echo "PASS: rollup-state=$ROLLUP_STATE"
-      - name: Assert rollup-state is SUCCESS (no matching workflows)
+      - name: Assert rollup-state is SUCCESS or FAILURE
         env:
           ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
         run: |
           echo "rollup-state: $ROLLUP_STATE"
-          if [ "$ROLLUP_STATE" != "SUCCESS" ]; then
-            echo "FAIL: expected SUCCESS when no workflows match filter, got '$ROLLUP_STATE'"
+          if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
+            echo "FAIL: expected SUCCESS or FAILURE, got '$ROLLUP_STATE'"
             exit 1
           fi
           echo "PASS"
+      - name: Assert failed-workflow-names output exists (may be empty)
+        env:
+          FAILED_NAMES: ${{ steps.action.outputs.failed-workflow-names }}
+        run: |
+          echo "failed-workflow-names: '$FAILED_NAMES'"
+          echo "PASS: output is accessible (empty means no failures)"

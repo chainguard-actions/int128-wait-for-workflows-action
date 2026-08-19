@@ -9,24 +9,27 @@ jobs:
       - id: action
         uses: .
         with:
-          initial-delay-seconds: '0'
+          initial-delay-seconds: '1'
           period-seconds: '5'
-          fail-fast: 'false'
-          token: ${{ github.token }}
-          sha: ${{ github.sha }}
-          filter-workflow-events: push
-        continue-on-error: true
-      - name: Assert step ran (outcome is success or failure, not skipped)
+          filter-workflow-events: 'push'
+          sha: e85220a0265fc3ebf3b6900baec84d151421cd48
+      - name: Assert rollup-state output is set
         env:
-          OUTCOME: ${{ steps.action.outcome }}
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
         run: |
-          echo "outcome: $OUTCOME"
-          if [ "$OUTCOME" = "skipped" ]; then
-            echo "FAIL: step was skipped unexpectedly"
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ -z "$ROLLUP_STATE" ]; then
+            echo "FAIL: rollup-state output is empty"
             exit 1
           fi
-          if [ -z "$OUTCOME" ]; then
-            echo "FAIL: outcome was empty"
+          echo "PASS: rollup-state=$ROLLUP_STATE"
+      - name: Assert rollup-state is SUCCESS or FAILURE
+        env:
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
+            echo "FAIL: expected SUCCESS or FAILURE, got '$ROLLUP_STATE'"
             exit 1
           fi
-          echo "PASS: step ran with outcome=$OUTCOME"
+          echo "PASS"

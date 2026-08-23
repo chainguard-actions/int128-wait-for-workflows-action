@@ -19,6 +19,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v1.90.0 | [`v1.90.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.90.0) | [`6a1c05e`](https://github.com/int128/wait-for-workflows-action/commit/6a1c05eec56c00409c1d7630fd783e01e35a6763) |
 | v1.92.0 | [`v1.92.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.92.0) | [`2875ef6`](https://github.com/int128/wait-for-workflows-action/commit/2875ef6993779fbdcabf6c04d6c66e1278042b0e) |
 | v1.93.0 | [`v1.93.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.93.0) | [`34fbedf`](https://github.com/int128/wait-for-workflows-action/commit/34fbedf1d8e6c06104bf26c12dac654c8243ccdf) |
+| v1.94.0 | [`v1.94.0`](https://github.com/chainguard-actions/int128-wait-for-workflows-action/tree/v1.94.0) | [`c964794`](https://github.com/int128/wait-for-workflows-action/commit/c964794ae4e6923dbd7043d6745821254831510b) |
 
 ## Privacy
 

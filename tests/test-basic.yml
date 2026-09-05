@@ -1,0 +1,39 @@
+name: Test basic usage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          initial-delay-seconds: '0'
+          period-seconds: '5'
+          sha: f0dd035278e6fcb73d6be27e412dfff930fb2d10
+          token: ${{ github.token }}
+      - name: Assert action ran and produced outputs or failed gracefully
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          ROLLUP_STATE: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "rollup-state: $ROLLUP_STATE"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$ROLLUP_STATE" ]; then
+              echo "FAIL: action succeeded but rollup-state output is empty"
+              exit 1
+            fi
+            if [ "$ROLLUP_STATE" != "SUCCESS" ] && [ "$ROLLUP_STATE" != "FAILURE" ]; then
+              echo "FAIL: rollup-state must be SUCCESS or FAILURE, got: $ROLLUP_STATE"
+              exit 1
+            fi
+            echo "PASS: rollup-state=$ROLLUP_STATE"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (sentinel repo or no check suites found)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

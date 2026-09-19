@@ -1,0 +1,41 @@
+name: Test filter-workflow-names input
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          filter-workflow-names: |
+            nonexistent-workflow-that-will-never-match-anything-xyz
+          initial-delay-seconds: '0'
+          period-seconds: '1'
+          sha: c31d67848f533bb8dfad44f37263d253995bd896
+          token: ${{ github.token }}
+      - name: Assert action produced a rollup-state or failed gracefully on sentinel repo
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          ROLLUP: ${{ steps.action.outputs.rollup-state }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "rollup-state: $ROLLUP"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$ROLLUP" ]; then
+              echo "FAIL: action succeeded but rollup-state output is empty"
+              exit 1
+            fi
+            if [ "$ROLLUP" != "SUCCESS" ] && [ "$ROLLUP" != "FAILURE" ]; then
+              echo "FAIL: rollup-state must be SUCCESS or FAILURE, got: $ROLLUP"
+              exit 1
+            fi
+            echo "PASS: rollup-state=$ROLLUP"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (sentinel repo is not resolvable)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

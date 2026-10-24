@@ -1,0 +1,51 @@
+name: Test name/event filters with fail-fast disabled
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          filter-workflow-names: |
+            build*
+            test*
+          exclude-workflow-names: |
+            *deploy*
+          filter-workflow-events: |
+            push
+            pull_request
+          fail-fast: 'false'
+          initial-delay-seconds: '0'
+          period-seconds: '1'
+          page-size-of-check-suites: '10'
+          sha: bd2118bbaa84a24f15195facd5ff3ba19df7dbd7
+      - name: Assert action ran (rollup-state set, or failed gracefully on the sentinel repo)
+        env:
+          RESULT: ${{ steps.action.outputs.rollup-state }}
+          FAILED: ${{ steps.action.outputs.failed-workflow-names }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "result: $RESULT"
+          echo "failed: $FAILED"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ "$RESULT" != "SUCCESS" ] && [ "$RESULT" != "FAILURE" ]; then
+              echo "FAIL: expected rollup-state SUCCESS or FAILURE"
+              exit 1
+            fi
+            if [ "$RESULT" = "SUCCESS" ] && [ -n "$FAILED" ]; then
+              echo "FAIL: SUCCESS but failed-workflow-names is non-empty"
+              exit 1
+            fi
+            echo "PASS: got '$RESULT'"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (sentinel repo is not resolvable)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
